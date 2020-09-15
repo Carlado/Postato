@@ -1,3 +1,6 @@
+const _ = require('lodash');
+const { Path } = require('path-parser');
+const { URL } = require('url');
 const mongoose = require('mongoose');
 const requireLogin = require('../middlewares/requireLogin');
 const requireCredits = require('../middlewares/requireCredits');
@@ -36,5 +39,26 @@ module.exports = (app) => {
 		} catch (err) {
 			res.status(422).send(err);
 		}
+	});
+
+	app.post('/api/surveys/webhooks', (req, res) => {
+		const events = req.body.map(({ email, url }) => {
+			const pathname = new URL(url).pathname;
+			const p = new Path('/api/surveys/:surveyId/:choice');
+			const match = p.test(pathname);
+
+			if (match) {
+				return {
+					email,
+					surveyId: match.surveyId,
+					choice: match.choice,
+				};
+			}
+		});
+	});
+
+	app.get('/api/surveys/webhooks', (req, res) => {
+		console.log(req.body);
+		res.send({});
 	});
 };
