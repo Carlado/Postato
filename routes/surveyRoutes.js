@@ -42,10 +42,10 @@ module.exports = (app) => {
 	});
 
 	app.post('/api/surveys/webhooks', (req, res) => {
+		const p = new Path('/api/surveys/:surveyId/:choice');
+
 		const events = req.body.map(({ email, url }) => {
-			const pathname = new URL(url).pathname;
-			const p = new Path('/api/surveys/:surveyId/:choice');
-			const match = p.test(pathname);
+			const match = p.test(new URL(url).pathname);
 
 			if (match) {
 				return {
@@ -55,6 +55,26 @@ module.exports = (app) => {
 				};
 			}
 		});
+
+		const compactEvents = events.filter(Boolean);
+		const uniqueEvents = _.uniqBy(compactEvents, 'email', 'surveyId');
+
+		uniqueEvents.forEach(({ surveyId, email, choice }) => {
+			Survey.updateOne(
+				{
+					_id: surveyId,
+					recipients: {
+						$elemMatch: { email: email, responded: false },
+					},
+				},
+				{
+					$inc: { [choice]: 1 },
+					$set: { 'recipients.$.responded': true },
+				}
+			).exec();
+		});
+
+		res.send({});
 	});
 
 	app.get('/api/surveys/webhooks', (req, res) => {
